@@ -1,0 +1,6 @@
+{
+  "name": "EUREKA",
+  "description": "A fast, secure and easy-to-use messaging application with AI integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
