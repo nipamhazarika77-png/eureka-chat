@@ -14,26 +14,6 @@ class FirebaseAuthRepository {
     val currentUser: FirebaseUser?
         get() = try { auth.currentUser } catch (e: Exception) { null }
 
-    suspend fun signInWithEmailAndPassword(email: String, password: String): Result<FirebaseUser> {
-        return try {
-            val result = auth.signInWithEmailAndPassword(email, password).await()
-            val user = result.user ?: throw Exception("User is null")
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun registerWithEmailAndPassword(email: String, password: String): Result<FirebaseUser> {
-        return try {
-            val result = auth.createUserWithEmailAndPassword(email, password).await()
-            val user = result.user ?: throw Exception("User is null")
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
     fun sendOtp(
         phoneNumber: String,
         activity: Activity,
@@ -65,27 +45,6 @@ class FirebaseAuthRepository {
     suspend fun signInWithOtp(verificationId: String, smsCode: String): Result<FirebaseUser> {
         return try {
             val credential = PhoneAuthProvider.getCredential(verificationId, smsCode)
-            val result = auth.signInWithCredential(credential).await()
-            val user = result.user ?: throw Exception("User is null")
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun signInAnonymously(): Result<FirebaseUser> {
-        return try {
-            val result = auth.signInAnonymously().await()
-            val user = result.user ?: throw Exception("User is null")
-            Result.success(user)
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun signInWithGoogleCredential(idToken: String): Result<FirebaseUser> {
-        return try {
-            val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
             val result = auth.signInWithCredential(credential).await()
             val user = result.user ?: throw Exception("User is null")
             Result.success(user)

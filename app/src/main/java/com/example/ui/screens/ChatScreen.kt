@@ -1,5 +1,10 @@
 package com.example.ui.screens
 
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -110,6 +115,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
@@ -181,6 +187,7 @@ fun ChatScreen(
 
     // State for message reaction selection and read receipt inspection
     var activeReactionMessageId by remember { mutableStateOf<String?>(null) }
+    var messageToDelete by remember { mutableStateOf<Message?>(null) }
     var showFullEmojiPickerForMessageId by remember { mutableStateOf<String?>(null) }
     var showInputEmojiPicker by remember { mutableStateOf(false) }
     var inspectMessageReceipt by remember { mutableStateOf<Message?>(null) }
@@ -188,6 +195,32 @@ fun ChatScreen(
     // State for keyword message search
     var isSearchActive by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.entries.any { it.value }
+        if (granted) {
+            Toast.makeText(context, "Permissions granted for media sharing", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permissions denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val requestMediaPermissions = {
+        val permissionsToRequest = mutableListOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
+        } else {
+            permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        permissionLauncher.launch(permissionsToRequest.toTypedArray())
+    }
 
     when (val state = uiState) {
         is ChatUiState.Loading -> {
@@ -233,12 +266,13 @@ fun ChatScreen(
             val coroutineScope = rememberCoroutineScope()
 
             // Local keyword filtered messages
-            val filteredMessages = remember(messages, searchQuery) {
+            val filteredMessages = remember(messages, searchQuery, currentUser.id) {
+                val nonDeletedForMe = messages.filter { !it.deletedForUserIds.contains(currentUser.id) }
                 if (searchQuery.isBlank()) {
-                    messages
+                    nonDeletedForMe
                 } else {
                     val query = searchQuery.trim()
-                    messages.filter { msg ->
+                    nonDeletedForMe.filter { msg ->
                         msg.text.contains(query, ignoreCase = true) ||
                         msg.senderName.contains(query, ignoreCase = true)
                     }
@@ -265,6 +299,48 @@ fun ChatScreen(
                 if (messages.isNotEmpty() && !isSearchActive && searchQuery.isBlank()) {
                     listState.animateScrollToItem(messages.size - 1)
                 }
+            }
+
+            if (messageToDelete != null) {
+                val isSentByMe = messageToDelete?.senderId == state.currentUserId
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = { messageToDelete = null },
+                    title = { Text("Delete Message") },
+                    text = { Text("Are you sure you want to delete this message?") },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                messageToDelete?.let { msg ->
+                                    viewModel.deleteMessageForMe(msg.id)
+                                }
+                                messageToDelete = null
+                            }
+                        ) {
+                            Text("Delete for me")
+                        }
+                    },
+                    dismissButton = {
+                        Row {
+                            androidx.compose.material3.TextButton(
+                                onClick = { messageToDelete = null }
+                            ) {
+                                Text("Cancel")
+                            }
+                            if (isSentByMe) {
+                                androidx.compose.material3.TextButton(
+                                    onClick = {
+                                        messageToDelete?.let { msg ->
+                                            viewModel.deleteMessageForEveryone(msg.id)
+                                        }
+                                        messageToDelete = null
+                                    }
+                                ) {
+                                    Text("Delete for everyone", color = Color(0xFFE53935))
+                                }
+                            }
+                        }
+                    }
+                )
             }
 
             Scaffold(
@@ -342,7 +418,8 @@ fun ChatScreen(
                             },
                             onOpenEmojiPicker = {
                                 showInputEmojiPicker = true
-                            }
+                            },
+                            onRequestMediaPermissions = { requestMediaPermissions() }
                         )
                     }
                 },
@@ -376,6 +453,42 @@ fun ChatScreen(
                             }
                         }
                     )
+
+                    // Persistent search bar below the top app bar / pinned section
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.background)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        TextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Search messages...", color = TextLightGray, fontSize = 14.sp) },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Filled.Search, contentDescription = "Search", tint = TextLightGray)
+                            },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = "" }) {
+                                        Icon(Icons.Filled.Close, contentDescription = "Clear", tint = TextGray)
+                                    }
+                                }
+                            },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                disabledContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("chat_persistent_search_input")
+                        )
+                    }
 
                     Box(
                         modifier = Modifier
@@ -438,6 +551,10 @@ fun ChatScreen(
                                                     viewModel.togglePinMessage(message.id)
                                                 }
                                             }
+                                        },
+                                        onDeletePrompt = {
+                                            messageToDelete = message
+                                            activeReactionMessageId = null
                                         },
                                         onReactionSelected = { emoji ->
                                             viewModel.toggleReaction(message.id, emoji)
@@ -668,6 +785,7 @@ private fun ChatTopAppBar(
     onSimulateTyping: () -> Unit = {},
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     var showMoreMenu by remember { mutableStateOf(false) }
 
     Surface(
@@ -817,16 +935,6 @@ private fun ChatTopAppBar(
                 },
                 actions = {
                     IconButton(
-                        onClick = onToggleSearch,
-                        modifier = Modifier.testTag("chat_search_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Search,
-                            contentDescription = "Search Messages",
-                            tint = DeepBlue
-                        )
-                    }
-                    IconButton(
                         onClick = onTogglePinnedView,
                         modifier = Modifier.testTag("chat_pinned_messages_toggle_btn")
                     ) {
@@ -860,14 +968,14 @@ private fun ChatTopAppBar(
                             )
                         }
                     }
-                    IconButton(onClick = { /* Voice Call */ }) {
+                    IconButton(onClick = { Toast.makeText(context, "Voice Call functionality coming soon", Toast.LENGTH_SHORT).show() }) {
                         Icon(
                             imageVector = Icons.Filled.Call,
                             contentDescription = "Voice Call",
                             tint = DeepBlue
                         )
                     }
-                    IconButton(onClick = { /* Video Call */ }) {
+                    IconButton(onClick = { Toast.makeText(context, "Video Call functionality coming soon", Toast.LENGTH_SHORT).show() }) {
                         Icon(
                             imageVector = Icons.Filled.Videocam,
                             contentDescription = "Video Call",
@@ -890,6 +998,27 @@ private fun ChatTopAppBar(
                             expanded = showMoreMenu,
                             onDismissRequest = { showMoreMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Mute notifications", fontSize = 14.sp) },
+                                onClick = { 
+                                    showMoreMenu = false
+                                    Toast.makeText(context, "Notifications muted", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Chat theme", fontSize = 14.sp) },
+                                onClick = { 
+                                    showMoreMenu = false
+                                    Toast.makeText(context, "Theme settings coming soon", Toast.LENGTH_SHORT).show()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Disappearing messages", fontSize = 14.sp) },
+                                onClick = { 
+                                    showMoreMenu = false
+                                    Toast.makeText(context, "Disappearing messages coming soon", Toast.LENGTH_SHORT).show()
+                                }
+                            )
                             DropdownMenuItem(
                                 text = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -963,6 +1092,7 @@ private fun MessageItem(
     searchQuery: String = "",
     onOpenReactionMenu: () -> Unit,
     onTogglePin: () -> Unit = {},
+    onDeletePrompt: () -> Unit = {},
     onReactionSelected: (String) -> Unit,
     onOpenFullEmojiPicker: () -> Unit,
     onOpenReceiptDetails: (Message) -> Unit = {}
@@ -1049,6 +1179,24 @@ private fun MessageItem(
                             imageVector = Icons.Filled.PushPin,
                             contentDescription = if (isPinned) "Unpin message" else "Pin message",
                             tint = if (isPinned) Color(0xFFD97706) else DeepBlue,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    // Delete button
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFEBEE))
+                            .clickable { onDeletePrompt() }
+                            .testTag("delete_message_btn_${message.id}"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Filled.Delete,
+                            contentDescription = "Delete message",
+                            tint = Color(0xFFE53935),
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -1168,14 +1316,32 @@ private fun MessageItem(
                         isSentByMe = isSentByMe
                     )
                 }
-
-                Text(
-                    text = highlightedText,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
-                    color = if (isSentByMe) Color.White else TextDark,
-                    fontWeight = FontWeight.Normal
-                )
+                
+                if (message.isDeleted) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Filled.Block,
+                            contentDescription = "Deleted",
+                            tint = if (isSentByMe) Color.White.copy(alpha = 0.6f) else TextGray,
+                            modifier = Modifier.size(14.dp).padding(end = 4.dp)
+                        )
+                        Text(
+                            text = highlightedText,
+                            fontSize = 14.sp,
+                            lineHeight = 20.sp,
+                            color = if (isSentByMe) Color.White.copy(alpha = 0.8f) else TextGray,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                        )
+                    }
+                } else {
+                    Text(
+                        text = highlightedText,
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        color = if (isSentByMe) Color.White else TextDark,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(4.dp))
 
@@ -1455,7 +1621,8 @@ private fun ChatBottomInputBar(
     onTextChange: (String) -> Unit,
     isSending: Boolean,
     onSend: () -> Unit,
-    onOpenEmojiPicker: () -> Unit
+    onOpenEmojiPicker: () -> Unit,
+    onRequestMediaPermissions: () -> Unit = {}
 ) {
     Surface(
         color = Color.White,
@@ -1530,7 +1697,7 @@ private fun ChatBottomInputBar(
 
                 // Attachment Button
                 IconButton(
-                    onClick = { /* Attach File */ },
+                    onClick = { onRequestMediaPermissions() },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
@@ -1557,8 +1724,12 @@ private fun ChatBottomInputBar(
                             Brush.linearGradient(listOf(DeepBlue.copy(alpha = 0.85f), Purple.copy(alpha = 0.85f)))
                         }
                     )
-                    .clickable(enabled = isNotEmpty && !isSending) {
-                        onSend()
+                    .clickable(enabled = (isNotEmpty || !isSending)) {
+                        if (isNotEmpty) {
+                            onSend()
+                        } else {
+                            onRequestMediaPermissions()
+                        }
                     }
                     .testTag("send_message_button"),
                 contentAlignment = Alignment.Center

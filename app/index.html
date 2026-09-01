@@ -55,6 +55,44 @@
         </div>
     </div>
 
+    <!-- WhatsApp-like Status Viewer Modal -->
+    <div id="status-viewer-modal" class="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-slate-950/95 backdrop-blur-md hidden">
+        <div class="relative w-full max-w-lg h-full sm:h-[85vh] bg-slate-900 sm:rounded-3xl border border-slate-800 flex flex-col justify-between overflow-hidden shadow-2xl">
+            <!-- Top Progress & Header -->
+            <div class="absolute top-0 inset-x-0 z-20 p-4 bg-gradient-to-b from-slate-950/90 to-transparent flex flex-col gap-2">
+                <div class="w-full bg-slate-700/50 h-1 rounded-full overflow-hidden">
+                    <div id="status-progress-bar" class="bg-emerald-400 h-full w-full transition-all duration-[5000ms] linear"></div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="status-viewer-avatar" class="w-10 h-10 rounded-full bg-slate-800 overflow-hidden border border-slate-700"></div>
+                        <div>
+                            <h4 id="status-viewer-name" class="text-sm font-bold text-white">Name</h4>
+                            <p id="status-viewer-time" class="text-[11px] text-slate-400">Time</p>
+                        </div>
+                    </div>
+                    <button onclick="closeStatusViewer()" class="text-slate-300 hover:text-white p-2 rounded-full bg-slate-800/80 hover:bg-slate-700">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Media / Content View -->
+            <div class="flex-1 flex items-center justify-center bg-slate-950 relative overflow-hidden">
+                <img id="status-viewer-img" src="" alt="Status" class="w-full h-full object-contain">
+                <video id="status-viewer-video" src="" class="w-full h-full object-contain hidden" autoplay controls></video>
+            </div>
+
+            <!-- Bottom Reply Bar -->
+            <div class="p-4 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+                <input type="text" placeholder="Reply to status..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+                <button onclick="showToast('Reply sent successfully!', 'success'); closeStatusViewer();" class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold px-4 py-2.5 rounded-xl text-sm transition-all flex items-center justify-center">
+                    Send
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Content Container -->
     <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
         <div class="w-full max-w-md">
@@ -211,6 +249,58 @@
                         <input type="checkbox" id="biometric-toggle" onchange="handleBiometricToggle(this)" class="sr-only peer">
                         <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                     </label>
+                </div>
+
+                <!-- WhatsApp-like Status Bar Section -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/50 mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            Status & Updates
+                        </h3>
+                        <input type="file" id="status-file-input" accept="image/*,video/*" capture="environment" class="hidden" onchange="handleUploadStatus(event)">
+                        <button onclick="document.getElementById('status-file-input').click()" class="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition-all">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                            Add Status
+                        </button>
+                    </div>
+
+                    <div id="status-items-container" class="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-800">
+                        <!-- My Status Item -->
+                        <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group" onclick="document.getElementById('status-file-input').click()">
+                            <div class="relative w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-emerald-500 to-indigo-500">
+                                <div id="my-status-avatar" class="w-full h-full rounded-full bg-slate-900 flex items-center justify-center overflow-hidden text-sm font-bold text-slate-200">
+                                    U
+                                </div>
+                                <div class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center text-[10px] font-bold border-2 border-slate-950">+</div>
+                            </div>
+                            <span class="text-[11px] text-slate-300 mt-1.5 truncate max-w-[60px]">My Status</span>
+                        </div>
+
+                        <!-- Contact / Others Status 1 -->
+                        <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group status-item" data-timestamp="1756700000000" onclick="openStatusViewer('Sarah Jenkins', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400', '15 mins ago')">
+                            <div class="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-emerald-500 to-teal-400 ring-2 ring-emerald-500/40">
+                                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400" alt="Sarah" class="w-full h-full rounded-full object-cover">
+                            </div>
+                            <span class="text-[11px] text-slate-300 mt-1.5 truncate max-w-[60px]">Sarah</span>
+                        </div>
+
+                        <!-- Contact / Others Status 2 -->
+                        <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group status-item" data-timestamp="1756690000000" onclick="openStatusViewer('Alex Rivera', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400', '1 hour ago')">
+                            <div class="w-14 h-14 rounded-full p-0.5 bg-gradient-to-tr from-emerald-500 to-teal-400 ring-2 ring-emerald-500/40">
+                                <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400" alt="Alex" class="w-full h-full rounded-full object-cover">
+                            </div>
+                            <span class="text-[11px] text-slate-300 mt-1.5 truncate max-w-[60px]">Alex</span>
+                        </div>
+
+                        <!-- Contact / Others Status 3 -->
+                        <div class="flex flex-col items-center flex-shrink-0 cursor-pointer group status-item" data-timestamp="1750000000000" onclick="openStatusViewer('Elena Rostova', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400', '3 days ago')">
+                            <div class="w-14 h-14 rounded-full p-0.5 bg-slate-700">
+                                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400" alt="Elena" class="w-full h-full rounded-full object-cover">
+                            </div>
+                            <span class="text-[11px] text-slate-400 mt-1.5 truncate max-w-[60px]">Elena</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Profile Picture Section (Camera or Identicon) -->
@@ -628,6 +718,102 @@
             await saveProfileImageToFirestore(dataUrl);
         };
 
+        // WhatsApp Status Handlers
+        window.handleUploadStatus = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const dataUrl = e.target.result;
+                const user = auth.currentUser;
+                if (!user) return;
+                try {
+                    const statusRef = doc(db, 'statuses', user.uid);
+                    await setDoc(statusRef, {
+                        uid: user.uid,
+                        name: user.displayName || 'My Status',
+                        mediaUrl: dataUrl,
+                        mediaType: file.type.startsWith('video') ? 'video' : 'image',
+                        timestamp: serverTimestamp()
+                    }, { merge: true });
+                    
+                    const myAvatar = document.getElementById('my-status-avatar');
+                    if (file.type.startsWith('video')) {
+                        myAvatar.innerHTML = `<video src="${dataUrl}" class="w-full h-full object-cover"></video>`;
+                    } else {
+                        myAvatar.innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+                    }
+                    showToast('Status updated successfully!', 'success');
+                } catch (err) {
+                    console.error("Error uploading status:", err);
+                    showToast('Failed to update status.', 'error');
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+
+        window.openStatusViewer = function(name, mediaUrl, timeText) {
+            const modal = document.getElementById('status-viewer-modal');
+            document.getElementById('status-viewer-name').textContent = name;
+            document.getElementById('status-viewer-time').textContent = timeText;
+            
+            const imgEl = document.getElementById('status-viewer-img');
+            const videoEl = document.getElementById('status-viewer-video');
+            const avatarEl = document.getElementById('status-viewer-avatar');
+            
+            avatarEl.innerHTML = `<img src="${mediaUrl}" class="w-full h-full object-cover">`;
+            
+            if (mediaUrl.includes('data:video') || mediaUrl.endsWith('.mp4')) {
+                imgEl.classList.add('hidden');
+                videoEl.classList.remove('hidden');
+                videoEl.src = mediaUrl;
+            } else {
+                videoEl.classList.add('hidden');
+                imgEl.classList.remove('hidden');
+                imgEl.src = mediaUrl;
+            }
+            
+            modal.classList.remove('hidden');
+            
+            const progressBar = document.getElementById('status-progress-bar');
+            progressBar.style.transition = 'none';
+            progressBar.style.width = '0%';
+            setTimeout(() => {
+                progressBar.style.transition = 'width 5000ms linear';
+                progressBar.style.width = '100%';
+            }, 50);
+
+            window._statusTimeout = setTimeout(() => {
+                closeStatusViewer();
+            }, 5000);
+        };
+
+        window.closeStatusViewer = function() {
+            if (window._statusTimeout) clearTimeout(window._statusTimeout);
+            document.getElementById('status-viewer-modal').classList.add('hidden');
+            const videoEl = document.getElementById('status-viewer-video');
+            videoEl.pause();
+        };
+
+        // Function to filter and hide statuses older than 24 hours
+        function filterExpiredStatuses() {
+            const now = Date.now();
+            const twentyFourHoursMs = 24 * 60 * 60 * 1000;
+            const statusItems = document.querySelectorAll('.status-item');
+            statusItems.forEach(item => {
+                const timestampStr = item.getAttribute('data-timestamp');
+                if (timestampStr) {
+                    const timestamp = parseInt(timestampStr, 10);
+                    const ageMs = now - timestamp;
+                    if (ageMs > twentyFourHoursMs) {
+                        item.style.display = 'none'; // hide if older than 24 hours
+                    } else {
+                        item.style.display = 'flex'; // show if within 24 hours
+                    }
+                }
+            });
+        }
+
         // Biometric Authentication Toggle Handler
         window.handleBiometricToggle = function(checkbox) {
             const isEnabled = checkbox.checked;
@@ -688,6 +874,9 @@
                 const bioKey = `biometric_enabled_${user.uid}`;
                 const bioSaved = localStorage.getItem(bioKey) === 'true';
                 document.getElementById('biometric-toggle').checked = bioSaved;
+
+                // Filter out expired statuses older than 24 hours
+                filterExpiredStatuses();
             } else {
                 // Logged Out State
                 dashboardStateEl.classList.add('hidden');

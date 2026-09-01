@@ -1,9 +1,16 @@
 package com.example.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +38,9 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -68,6 +78,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.models.Chat
+import com.example.models.MessageStatus
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DeepBlue
 import com.example.ui.theme.DividerColor
@@ -117,6 +128,32 @@ fun ChatListScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+    
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.entries.any { it.value }
+        if (granted) {
+            Toast.makeText(context, "Permissions granted for status updates", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "Permissions denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val requestStatusPermissions = {
+        val permissionsToRequest = mutableListOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.RECORD_AUDIO
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.READ_MEDIA_IMAGES)
+            permissionsToRequest.add(Manifest.permission.READ_MEDIA_VIDEO)
+        } else {
+            permissionsToRequest.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        permissionLauncher.launch(permissionsToRequest.toTypedArray())
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -242,7 +279,14 @@ fun ChatListScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             if (!isSearchActive) {
-                // Stories / Status Row
+                // Status Row (WhatsApp style)
+                val statusList = listOf(
+                    "Aria" to true,
+                    "Leo" to true,
+                    "Zoe" to false,
+                    "Max" to false
+                )
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -250,45 +294,78 @@ fun ChatListScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // My Status
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clickable { }
+                        modifier = Modifier.clickable { requestStatusPermissions() }
                     ) {
                         Box(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(RoundedCornerShape(22.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            modifier = Modifier.size(64.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Filled.Add, contentDescription = "Add Story", tint = TextGray)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Add Story", fontSize = 10.sp, fontWeight = FontWeight.Medium, color = TextLightGray)
-                    }
-
-                    // Placeholder stories
-                    listOf("Aria", "Leo", "Zoe", "Max").forEach { name ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
                                 modifier = Modifier
                                     .size(60.dp)
-                                    .clip(RoundedCornerShape(22.dp))
-                                    .background(Brush.linearGradient(listOf(Purple, MaterialTheme.colorScheme.tertiary)))
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Filled.Add, contentDescription = "Add Status", tint = TextGray)
+                            }
+                            // Small plus icon overlay
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.background)
                                     .padding(2.dp)
                             ) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(Color.White),
+                                        .clip(CircleShape)
+                                        .background(MaterialTheme.colorScheme.primary),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(name.take(1).uppercase(), color = DeepBlue, fontWeight = FontWeight.Bold)
+                                    Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(12.dp))
                                 }
                             }
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("My status", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground)
+                    }
+
+                    // Other user statuses
+                    statusList.forEach { (name, hasUnseen) ->
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = Modifier.clickable { }
+                        ) {
+                            val borderColor = if (hasUnseen) MaterialTheme.colorScheme.primary else TextLightGray
+                            Box(
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .border(2.5.dp, borderColor, CircleShape)
+                                    .padding(4.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = name.take(1).uppercase(),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 20.sp
+                                )
+                            }
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(name, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground)
+                            Text(
+                                text = name,
+                                fontSize = 11.sp,
+                                fontWeight = if (hasUnseen) FontWeight.Bold else FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
                         }
                     }
                 }
@@ -414,6 +491,7 @@ fun ChatListScreen(
                     ) { chat ->
                         ChatItem(
                             chat = chat,
+                            currentUserId = currentUser.id,
                             onClick = { onChatClick(chat.id) },
                             onArchive = {
                                 viewModel.archiveChat(chat.id)
@@ -524,6 +602,7 @@ fun ArchivedSectionBanner(
 @Composable
 fun ChatItem(
     chat: Chat,
+    currentUserId: String,
     onClick: () -> Unit,
     onArchive: () -> Unit
 ) {
@@ -588,6 +667,44 @@ fun ChatItem(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (chat.lastMessageSenderId == currentUserId && chat.lastMessage.isNotBlank()) {
+                        when (chat.lastMessageStatus) {
+                            MessageStatus.SENDING -> {
+                                Icon(
+                                    imageVector = Icons.Filled.Schedule,
+                                    contentDescription = "Sending",
+                                    tint = TextLightGray,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            MessageStatus.SENT -> {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Sent",
+                                    tint = TextLightGray,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            MessageStatus.DELIVERED -> {
+                                Icon(
+                                    imageVector = Icons.Filled.DoneAll,
+                                    contentDescription = "Delivered",
+                                    tint = TextLightGray,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            MessageStatus.READ -> {
+                                Icon(
+                                    imageVector = Icons.Filled.DoneAll,
+                                    contentDescription = "Seen",
+                                    tint = CyanAccent,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            else -> {}
+                        }
+                    }
+
                     Text(
                         text = if (chat.lastMessage.isNotBlank()) chat.lastMessage else "No messages yet",
                         fontSize = 13.sp,

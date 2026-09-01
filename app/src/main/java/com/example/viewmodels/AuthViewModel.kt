@@ -79,54 +79,6 @@ class AuthViewModel : ViewModel() {
         _authState.value = AuthState.Idle
     }
 
-    fun signIn(email: String, password: String) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = authRepository.signInWithEmailAndPassword(email, password)
-            if (result.isSuccess) {
-                _authState.value = AuthState.Authenticated
-            } else {
-                _authState.value = AuthState.Error(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
-            }
-        }
-    }
-
-    fun register(email: String, password: String) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = authRepository.registerWithEmailAndPassword(email, password)
-            if (result.isSuccess) {
-                _authState.value = AuthState.Authenticated
-            } else {
-                _authState.value = AuthState.Error(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
-            }
-        }
-    }
-
-    fun signInAnonymously() {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = authRepository.signInAnonymously()
-            if (result.isSuccess) {
-                _authState.value = AuthState.Authenticated
-            } else {
-                _authState.value = AuthState.Error(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
-            }
-        }
-    }
-
-    fun signInWithGoogle(idToken: String) {
-        viewModelScope.launch {
-            _authState.value = AuthState.Loading
-            val result = authRepository.signInWithGoogleCredential(idToken)
-            if (result.isSuccess) {
-                _authState.value = AuthState.Authenticated
-            } else {
-                _authState.value = AuthState.Error(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
-            }
-        }
-    }
-
     fun signOut() {
         authRepository.signOut()
         _authState.value = AuthState.Idle

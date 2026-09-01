@@ -28,6 +28,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Unarchive
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -64,6 +67,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.models.Chat
+import com.example.models.MessageStatus
 import com.example.ui.theme.CyanAccent
 import com.example.ui.theme.DeepBlue
 import com.example.ui.theme.DividerColor
@@ -301,6 +305,7 @@ fun ArchivedChatsScreen(
                     ) { chat ->
                         ArchivedChatItem(
                             chat = chat,
+                            currentUserId = currentUser.id,
                             onClick = { onChatClick(chat.id) },
                             onUnarchive = {
                                 viewModel.unarchiveChat(chat.id)
@@ -327,6 +332,7 @@ fun ArchivedChatsScreen(
 @Composable
 fun ArchivedChatItem(
     chat: Chat,
+    currentUserId: String,
     onClick: () -> Unit,
     onUnarchive: () -> Unit
 ) {
@@ -393,6 +399,44 @@ fun ArchivedChatItem(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    if (chat.lastMessageSenderId == currentUserId && chat.lastMessage.isNotBlank()) {
+                        when (chat.lastMessageStatus) {
+                            MessageStatus.SENDING -> {
+                                Icon(
+                                    imageVector = Icons.Filled.Schedule,
+                                    contentDescription = "Sending",
+                                    tint = TextLightGray,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            MessageStatus.SENT -> {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = "Sent",
+                                    tint = TextLightGray,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            MessageStatus.DELIVERED -> {
+                                Icon(
+                                    imageVector = Icons.Filled.DoneAll,
+                                    contentDescription = "Delivered",
+                                    tint = TextLightGray,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            MessageStatus.READ -> {
+                                Icon(
+                                    imageVector = Icons.Filled.DoneAll,
+                                    contentDescription = "Seen",
+                                    tint = CyanAccent,
+                                    modifier = Modifier.size(14.dp).padding(end = 2.dp)
+                                )
+                            }
+                            else -> {}
+                        }
+                    }
+
                     Text(
                         text = if (chat.lastMessage.isNotBlank()) chat.lastMessage else "No messages yet",
                         fontSize = 13.sp,

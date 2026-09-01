@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.DeepBlue
@@ -24,20 +23,12 @@ import com.example.ui.theme.Purple
 import com.example.viewmodels.AuthState
 import com.example.viewmodels.AuthViewModel
 
-enum class AuthMode { EMAIL, PHONE }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignInScreen(
     authViewModel: AuthViewModel,
     onNavigateToMain: () -> Unit
 ) {
-    var authMode by remember { mutableStateOf(AuthMode.EMAIL) }
-    
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isRegistering by remember { mutableStateOf(false) }
-
     var phoneNumber by remember { mutableStateOf("+91 ") }
     var otpCode by remember { mutableStateOf("") }
 
@@ -81,82 +72,24 @@ fun SignInScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Auth Mode Toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(if (authMode == AuthMode.EMAIL) MaterialTheme.colorScheme.primary else Color.Transparent)
-                        .clickable { authMode = AuthMode.EMAIL; authViewModel.resetOtpState() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Email", color = if (authMode == AuthMode.EMAIL) Color.White else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                }
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(if (authMode == AuthMode.PHONE) MaterialTheme.colorScheme.primary else Color.Transparent)
-                        .clickable { authMode = AuthMode.PHONE; isRegistering = false },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Phone", color = if (authMode == AuthMode.PHONE) Color.White else MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            if (authMode == AuthMode.EMAIL) {
+            if (!otpSent) {
                 OutlinedTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = { Text("Email") },
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it },
+                    label = { Text("Phone Number (🇮🇳 +91)") },
                     modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    shape = RoundedCornerShape(12.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     shape = RoundedCornerShape(12.dp)
                 )
             } else {
-                if (!otpSent) {
-                    OutlinedTextField(
-                        value = phoneNumber,
-                        onValueChange = { phoneNumber = it },
-                        label = { Text("Phone Number (🇮🇳 +91)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                } else {
-                    OutlinedTextField(
-                        value = otpCode,
-                        onValueChange = { otpCode = it },
-                        label = { Text("Enter OTP Code") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                }
+                OutlinedTextField(
+                    value = otpCode,
+                    onValueChange = { otpCode = it },
+                    label = { Text("Enter OTP Code") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    shape = RoundedCornerShape(12.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -166,20 +99,12 @@ fun SignInScreen(
             } else {
                 Button(
                     onClick = {
-                        if (authMode == AuthMode.EMAIL) {
-                            if (isRegistering) {
-                                authViewModel.register(email, password)
-                            } else {
-                                authViewModel.signIn(email, password)
+                        if (!otpSent) {
+                            activity?.let {
+                                authViewModel.sendOtp(phoneNumber, it)
                             }
                         } else {
-                            if (!otpSent) {
-                                activity?.let {
-                                    authViewModel.sendOtp(phoneNumber, it)
-                                }
-                            } else {
-                                authViewModel.verifyOtp(otpCode)
-                            }
+                            authViewModel.verifyOtp(otpCode)
                         }
                     },
                     modifier = Modifier
@@ -197,12 +122,7 @@ fun SignInScreen(
                             .background(Brush.horizontalGradient(listOf(DeepBlue, Purple))),
                         contentAlignment = Alignment.Center
                     ) {
-                        val buttonText = when {
-                            authMode == AuthMode.EMAIL && isRegistering -> "Register"
-                            authMode == AuthMode.EMAIL -> "Sign In"
-                            authMode == AuthMode.PHONE && !otpSent -> "Send OTP"
-                            else -> "Verify OTP"
-                        }
+                        val buttonText = if (!otpSent) "Send OTP" else "Verify OTP"
                         Text(
                             text = buttonText,
                             color = Color.White,
@@ -211,32 +131,11 @@ fun SignInScreen(
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedButton(
-                    onClick = { authViewModel.signInAnonymously() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Continue as Guest (Anonymous)", fontWeight = FontWeight.SemiBold)
-                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (authMode == AuthMode.EMAIL) {
-                TextButton(
-                    onClick = { isRegistering = !isRegistering }
-                ) {
-                    Text(
-                        text = if (isRegistering) "Already have an account? Sign In" else "Don't have an account? Register",
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            } else if (otpSent) {
+            if (otpSent) {
                 TextButton(
                     onClick = { authViewModel.resetOtpState() }
                 ) {

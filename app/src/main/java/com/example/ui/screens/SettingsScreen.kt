@@ -63,6 +63,7 @@ import com.example.SecurityPreferences
 fun SettingsScreen(
     viewModel: MainViewModel,
     onNavigateToProfile: () -> Unit = {},
+    onNavigateToPrivacy: () -> Unit = {},
     profileViewModel: ProfileViewModel = viewModel()
 ) {
     val user by profileViewModel.userState.collectAsState()
@@ -161,6 +162,13 @@ fun SettingsScreen(
                 title = "Profile Details",
                 subtitle = "Display name, status, bio & photo",
                 onClick = onNavigateToProfile
+            )
+            
+            SettingsItem(
+                icon = androidx.compose.material.icons.Icons.Filled.PrivacyTip,
+                title = "Privacy",
+                subtitle = "Last seen, Profile photo, App lock, App lock",
+                onClick = onNavigateToPrivacy
             )
             
             val context = LocalContext.current

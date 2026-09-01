@@ -465,6 +465,56 @@ class FirestoreChatRepository {
     }
 
     /**
+     * Deletes a message for everyone in the chat (soft delete).
+     */
+    suspend fun deleteMessageForEveryone(chatId: String, messageId: String): Result<Unit> {
+        val db = firestore ?: return Result.failure(IllegalStateException("Firestore is not initialized"))
+        if (chatId.isBlank() || messageId.isBlank()) return Result.failure(IllegalArgumentException("Parameters cannot be blank"))
+
+        return try {
+            val messageRef = db.collection(FirestoreSchema.COLLECTION_CHATS)
+                .document(chatId)
+                .collection(FirestoreSchema.SUBCOLLECTION_MESSAGES)
+                .document(messageId)
+            
+            messageRef.update(mapOf(
+                FirestoreSchema.MessageFields.FIELD_IS_DELETED to true,
+                FirestoreSchema.MessageFields.FIELD_TEXT to "This message was deleted."
+            )).await()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("FirestoreChatRepo", "Failed to delete message for everyone", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Deletes a message only for the current user.
+     */
+    suspend fun deleteMessageForMe(chatId: String, messageId: String, userId: String): Result<Unit> {
+        val db = firestore ?: return Result.failure(IllegalStateException("Firestore is not initialized"))
+        if (chatId.isBlank() || messageId.isBlank() || userId.isBlank()) return Result.failure(IllegalArgumentException("Parameters cannot be blank"))
+
+        return try {
+            val messageRef = db.collection(FirestoreSchema.COLLECTION_CHATS)
+                .document(chatId)
+                .collection(FirestoreSchema.SUBCOLLECTION_MESSAGES)
+                .document(messageId)
+            
+            messageRef.update(
+                FirestoreSchema.MessageFields.FIELD_DELETED_FOR_USER_IDS, 
+                FieldValue.arrayUnion(userId)
+            ).await()
+            
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("FirestoreChatRepo", "Failed to delete message for me", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Updates real-time typing status in Firestore for a user in a chat conversation.
      * When isTyping is true, adds the userId to typingUserIds array.
      * When isTyping is false, removes the userId from typingUserIds array.

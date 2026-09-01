@@ -416,6 +416,40 @@ class ChatViewModel(
         }
     }
 
+    fun deleteMessageForEveryone(messageId: String) {
+        if (messageId.isBlank()) return
+        
+        // Optimistically update message
+        _localMessages.value = _localMessages.value.map { msg ->
+            if (msg.id == messageId) {
+                msg.copy(isDeleted = true, text = "This message was deleted.")
+            } else {
+                msg
+            }
+        }
+        
+        viewModelScope.launch {
+            chatRepository.deleteMessageForEveryone(chatId, messageId)
+        }
+    }
+
+    fun deleteMessageForMe(messageId: String) {
+        if (messageId.isBlank()) return
+        
+        // Optimistically update message
+        _localMessages.value = _localMessages.value.map { msg ->
+            if (msg.id == messageId) {
+                msg.copy(deletedForUserIds = msg.deletedForUserIds + currentUserId)
+            } else {
+                msg
+            }
+        }
+        
+        viewModelScope.launch {
+            chatRepository.deleteMessageForMe(chatId, messageId, currentUserId)
+        }
+    }
+
     /**
      * Toggles pin status for a message.
      */

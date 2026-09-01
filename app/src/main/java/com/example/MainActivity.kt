@@ -61,6 +61,7 @@ import com.example.viewmodels.AuthState
 import com.example.viewmodels.MainViewModel
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Archive
+import androidx.compose.material.icons.filled.PrivacyTip
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Chats : Screen("chats", "Chats", Icons.AutoMirrored.Filled.Chat)
@@ -69,6 +70,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object AI : Screen("ai", "Eureka AI", Icons.Filled.SmartToy)
     object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
     object Profile : Screen("profile", "Profile", Icons.Filled.Person)
+    object Privacy : Screen("privacy", "Privacy", Icons.Filled.PrivacyTip)
     object ArchivedChats : Screen("archived_chats", "Archived", Icons.Filled.Archive)
     object ChatDetail : Screen("chat_detail/{chatId}", "Chat Detail", Icons.AutoMirrored.Filled.Chat) {
         fun createRoute(chatId: String) = "chat_detail/$chatId"
@@ -242,11 +244,15 @@ fun MainScreen() {
             composable(Screen.Settings.route) { 
                 SettingsScreen(
                     viewModel = viewModel, 
-                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) }
+                    onNavigateToProfile = { navController.navigate(Screen.Profile.route) },
+                    onNavigateToPrivacy = { navController.navigate(Screen.Privacy.route) }
                 ) 
             }
             composable(Screen.Profile.route) {
-                ProfileScreen(onBack = { navController.popBackStack() })
+                com.example.ui.screens.ProfileScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Privacy.route) {
+                com.example.ui.screens.PrivacyScreen(onBack = { navController.popBackStack() })
             }
             composable(Screen.ChatDetail.route) { backStackEntry ->
                 val chatId = backStackEntry.arguments?.getString("chatId") ?: return@composable
