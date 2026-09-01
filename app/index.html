@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Authentication Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Firebase v10 Modular SDK Import Map -->
+    <script type="importmap">
+      {
+        "imports": {
+          "firebase/app": "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js",
+          "firebase/auth": "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js",
+          "firebase/firestore": "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"
+        }
+      }
+    </script>
+</head>
+<body class="bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 min-h-screen text-slate-100 flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 max-w-sm"></div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-password-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl shadow-black/80">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+                    Reset Password
+                </h3>
+                <button onclick="closeForgotPasswordModal()" class="text-slate-400 hover:text-white p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <p class="text-slate-400 text-xs mb-5">Enter your account email address below and we'll send you a secure link to reset your password without leaving this page.</p>
+            
+            <form onsubmit="handleModalForgotPasswordSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Email Address</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
+                        </span>
+                        <input type="email" id="modal-reset-email" required placeholder="name@example.com" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-2">
+                    <button type="button" onclick="closeForgotPasswordModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 px-4 rounded-xl text-sm transition-all">Cancel</button>
+                    <button type="submit" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl text-sm shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2">Send Link</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+        <div class="w-full max-w-md">
+            
+            <!-- App Header Branding -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-4 shadow-lg shadow-indigo-500/10 backdrop-blur-xl">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-indigo-200 to-indigo-400 bg-clip-text text-transparent">SecurePortal</h1>
+                <p class="text-slate-400 text-sm mt-1">Firebase Authentication & Firestore Dashboard</p>
+            </div>
+
+            <!-- ================= STATE A: LOGGED OUT (Auth Card) ================= -->
+            <div id="auth-state" class="bg-slate-900/60 backdrop-blur-2xl border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/50">
+                
+                <!-- Tabs for Login / Signup -->
+                <div class="flex rounded-xl bg-slate-950/60 p-1 mb-6 border border-slate-800/50">
+                    <button id="tab-login" onclick="switchTab('login')" class="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 bg-indigo-600 text-white shadow-md shadow-indigo-600/30">Sign In</button>
+                    <button id="tab-signup" onclick="switchTab('signup')" class="flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-slate-400 hover:text-white">Create Account</button>
+                </div>
+
+                <!-- Form -->
+                <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Email Address</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"></path></svg>
+                            </span>
+                            <input type="email" id="email" required placeholder="name@example.com" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
+                            <a href="#" onclick="handleForgotPassword(event)" id="forgot-password-link" class="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors">Forgot password?</a>
+                        </div>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-500">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                            </span>
+                            <input type="password" id="password" required placeholder="•••••••• (min 6 chars)" class="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all">
+                        </div>
+                    </div>
+
+                    <button type="submit" id="submit-btn" class="w-full mt-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/25 transition-all duration-200 flex items-center justify-center gap-2 group">
+                        <span id="submit-btn-text">Sign In</span>
+                        <svg id="submit-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </button>
+                </form>
+
+                <!-- Divider -->
+                <div class="relative flex py-5 items-center">
+                    <div class="flex-grow border-t border-slate-800"></div>
+                    <span class="flex-shrink mx-4 text-xs font-semibold text-slate-500 uppercase tracking-widest">Or continue with</span>
+                    <div class="flex-grow border-t border-slate-800"></div>
+                </div>
+
+                <!-- Google Login Button -->
+                <button onclick="handleGoogleSignIn()" class="w-full bg-slate-950/80 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-200 font-semibold py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-3 shadow-sm">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                    </svg>
+                    <span>Google Account</span>
+                </button>
+            </div>
+
+            <!-- ================= STATE B: LOGGED IN (Dashboard) ================= -->
+            <div id="dashboard-state" class="hidden bg-slate-900/60 backdrop-blur-2xl border border-slate-800/80 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-black/50">
+                <div class="flex items-center gap-4 mb-6 pb-6 border-b border-slate-800">
+                    <div id="user-avatar-container" class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center text-white text-2xl font-bold justify-center shadow-lg shadow-indigo-500/20">
+                        U
+                    </div>
+                    <div class="overflow-hidden">
+                        <h2 id="user-display-name" class="text-lg font-bold text-white truncate">User Profile</h2>
+                        <p id="user-email-text" class="text-xs text-slate-400 truncate">email@example.com</p>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mt-1.5">Authenticated</span>
+                    </div>
+                </div>
+
+                <!-- Email Verification Banner (Shown if not verified) -->
+                <div id="email-verification-banner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6 text-amber-200">
+                    <div class="flex items-start gap-3">
+                        <svg class="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                        <div class="flex-1">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-300 mb-1">Email Not Verified</h4>
+                            <p class="text-xs text-amber-200/80 mb-3">Please verify your email address to ensure full account access and security.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="handleSendVerification()" class="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold py-1.5 px-3 rounded-xl text-xs transition-all shadow-sm">
+                                    Resend Verification Email
+                                </button>
+                                <button onclick="handleCheckVerificationStatus()" class="bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 font-medium py-1.5 px-3 rounded-xl text-xs transition-all">
+                                    I've Verified (Refresh)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3 mb-6 text-sm">
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/50">
+                        <span class="block text-[10px] uppercase font-semibold text-slate-500 tracking-wider">User UID</span>
+                        <span id="user-uid" class="font-mono text-xs text-indigo-300 break-all">--</span>
+                    </div>
+                    <div class="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800/50">
+                        <span class="block text-[10px] uppercase font-semibold text-slate-500 tracking-wider">Last Login / Session</span>
+                        <span id="user-last-login" class="text-xs text-slate-300">--</span>
+                    </div>
+                </div>
+
+                <!-- Optional Social Profile Linking Section -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/50 mb-6">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        Linked Social Profiles (Optional)
+                    </h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-400 mb-1">GitHub Profile URL or Username</label>
+                            <input type="text" id="github-input" placeholder="https://github.com/username" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] font-medium text-slate-400 mb-1">LinkedIn Profile URL</label>
+                            <input type="text" id="linkedin-input" placeholder="https://linkedin.com/in/username" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <button onclick="handleSaveSocials()" class="w-full mt-1 bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-semibold py-2 px-3 rounded-xl transition-all text-xs">
+                            Save Social Links
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Biometric Authentication Settings Section -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/50 mb-6 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0115.171 17m3.839-1.332c.642.38 1.251.815 1.822 1.305m-3.839-1.332c.078-.046.155-.094.232-.144m0 0A13.958 13.958 0 0021 11a7 7 0 10-14 0c0 1.334.372 2.585 1.026 3.654"></path></svg>
+                        </div>
+                        <div class="overflow-hidden">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-200">Device Biometric Login</h4>
+                            <p class="text-[11px] text-slate-400 truncate">Enable fingerprint/face ID for future logins.</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer flex-shrink-0 ml-2">
+                        <input type="checkbox" id="biometric-toggle" onchange="handleBiometricToggle(this)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+
+                <!-- Profile Picture Section (Camera or Identicon) -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/50 mb-6">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Profile Picture Settings
+                    </h3>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <input type="file" id="camera-file-input" accept="image/*" capture="environment" class="hidden" onchange="handleCameraCapture(event)">
+                        <button onclick="document.getElementById('camera-file-input').click()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-sm">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                            Camera / Upload
+                        </button>
+                        <button onclick="handleGenerateIdenticon()" class="flex-1 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-medium py-2.5 px-3 rounded-xl text-xs transition-all flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            Generate Identicon
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="handleLogout()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-semibold py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    <span>Sign Out</span>
+                </button>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- ================= 3-STEP INSTRUCTIONS BOX ================= -->
+    <footer class="p-4 sm:p-6 max-w-2xl mx-auto w-full">
+        <div class="bg-slate-900/40 backdrop-blur-md border border-slate-800/60 rounded-2xl p-4 text-xs text-slate-400">
+            <h3 class="font-semibold text-slate-200 mb-2 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                Firebase Setup Guide
+            </h3>
+            <ol class="list-decimal list-inside space-y-1 text-slate-400">
+                <li><strong class="text-slate-300">Create Firebase Project:</strong> Go to the <a href="https://console.firebase.google.com/" target="_blank" class="text-indigo-400 underline hover:text-indigo-300">Firebase Console</a>, create a project, and register a Web app.</li>
+                <li><strong class="text-slate-300">Enable Auth Providers:</strong> In Authentication settings, enable <span class="text-slate-300">Email/Password</span> and <span class="text-slate-300">Google</span> sign-in.</li>
+                <li><strong class="text-slate-300">Paste Config:</strong> Copy your web app config object and replace `firebaseConfig` at the top of the script below.</li>
+            </ol>
+        </div>
+    </footer>
+
+    <!-- ================= FIREBASE LOGIC & APP SCRIPT ================= -->
+    <script type="module">
+        import { initializeApp } from "firebase/app";
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword, 
+            signInWithEmailAndPassword, 
+            signInWithPopup, 
+            GoogleAuthProvider, 
+            signOut, 
+            sendPasswordResetEmail, 
+            sendEmailVerification,
+            onAuthStateChanged 
+        } from "firebase/auth";
+        import { getFirestore, doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+
+        // 1. FIREBASE CONFIGURATION
+        // Replace with your Firebase Console web app credentials
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpHMihm4pQ6iNX7Mn7ZQk8ure_7MLRLu4",
+            authDomain: "eureka-b98dc.firebaseapp.com",
+            projectId: "eureka-b98dc",
+            storageBucket: "eureka-b98dc.firebasestorage.app",
+            messagingSenderId: "6966563183",
+            appId: "1:6966563183:web:generated_web_app_id"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const googleProvider = new GoogleAuthProvider();
+
+        let currentMode = 'login'; // 'login' or 'signup'
+
+        // Tab Switching Handler
+        window.switchTab = function(mode) {
+            currentMode = mode;
+            const loginBtn = document.getElementById('tab-login');
+            const signupBtn = document.getElementById('tab-signup');
+            const submitBtnText = document.getElementById('submit-btn-text');
+            const forgotLink = document.getElementById('forgot-password-link');
+
+            if (mode === 'login') {
+                loginBtn.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
+                signupBtn.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-slate-400 hover:text-white";
+                submitBtnText.textContent = "Sign In";
+                forgotLink.style.display = "block";
+            } else {
+                signupBtn.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 bg-indigo-600 text-white shadow-md shadow-indigo-600/30";
+                loginBtn.className = "flex-1 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-slate-400 hover:text-white";
+                submitBtnText.textContent = "Create Account";
+                forgotLink.style.display = "none";
+            }
+        };
+
+        // Toast Notification Function
+        window.showToast = function(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const isSuccess = type === 'success';
+            
+            toast.className = `transform transition-all duration-300 translate-y-2 opacity-0 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl border backdrop-blur-xl text-sm font-medium ${
+                isSuccess 
+                    ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-200 shadow-emerald-500/10' 
+                    : 'bg-rose-950/80 border-rose-500/30 text-rose-200 shadow-rose-500/10'
+            }`;
+
+            toast.innerHTML = `
+                <svg class="w-5 h-5 flex-shrink-0 ${isSuccess ? 'text-emerald-400' : 'text-rose-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    ${isSuccess 
+                        ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>' 
+                        : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>'}
+                </svg>
+                <span>${message}</span>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-2', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        // Set Loading State
+        function setLoading(isLoading) {
+            const btn = document.getElementById('submit-btn');
+            const spinner = document.getElementById('submit-spinner');
+            const btnText = document.getElementById('submit-btn-text');
+
+            btn.disabled = isLoading;
+            if (isLoading) {
+                spinner.classList.remove('hidden');
+                btnText.style.opacity = '0.7';
+            } else {
+                spinner.classList.add('hidden');
+                btnText.style.opacity = '1';
+            }
+        }
+
+        // Friendly Auth Error Formatter
+        function getFriendlyErrorMessage(errorCode) {
+            switch (errorCode) {
+                case 'auth/invalid-email': return 'Please enter a valid email address.';
+                case 'auth/user-disabled': return 'This user account has been disabled.';
+                case 'auth/user-not-found': return 'No account found with this email.';
+                case 'auth/wrong-password': return 'Incorrect password. Please try again.';
+                case 'auth/email-already-in-use': return 'An account already exists with this email.';
+                case 'auth/weak-password': return 'Password should be at least 6 characters.';
+                case 'auth/popup-closed-by-user': return 'Google sign-in popup was closed before completion.';
+                case 'auth/network-request-failed': return 'Network error. Please check your connection.';
+                default: return 'Authentication failed. Please check your inputs.';
+            }
+        }
+
+        // Save User Document to Firestore
+        async function createUserDoc(user) {
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                const userSnap = await getDoc(userRef);
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        uid: user.uid,
+                        email: user.email,
+                        displayName: user.displayName || user.email.split('@')[0],
+                        createdAt: serverTimestamp(),
+                        lastLogin: serverTimestamp()
+                    });
+                } else {
+                    await setDoc(userRef, {
+                        lastLogin: serverTimestamp()
+                    }, { merge: true });
+                }
+            } catch (e) {
+                console.error("Error creating user document:", e);
+            }
+        }
+
+        // Form Submit Handler
+        window.handleAuthSubmit = async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            // Form Validation
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email address.', 'error');
+                return;
+            }
+            if (!password || password.length < 6) {
+                showToast('Password must be at least 6 characters.', 'error');
+                return;
+            }
+
+            setLoading(true);
+
+            try {
+                if (currentMode === 'signup') {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    await sendEmailVerification(userCredential.user);
+                    await createUserDoc(userCredential.user);
+                    showToast('Account created! Verification email sent.', 'success');
+                } else {
+                    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                    await createUserDoc(userCredential.user);
+                    showToast('Signed in successfully!', 'success');
+                }
+            } catch (error) {
+                console.error("Auth Error:", error);
+                showToast(getFriendlyErrorMessage(error.code), 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        // Google Sign-In Handler
+        window.handleGoogleSignIn = async function() {
+            try {
+                const result = await signInWithPopup(auth, googleProvider);
+                await createUserDoc(result.user);
+                showToast('Signed in with Google successfully!', 'success');
+            } catch (error) {
+                console.error("Google Auth Error:", error);
+                showToast(getFriendlyErrorMessage(error.code), 'error');
+            }
+        };
+
+        // Forgot Password Handlers (Modal Flow)
+        window.handleForgotPassword = function(event) {
+            event.preventDefault();
+            const emailInput = document.getElementById('email').value.trim();
+            const modalEmail = document.getElementById('modal-reset-email');
+            if (emailInput && emailInput.includes('@')) {
+                modalEmail.value = emailInput;
+            } else {
+                modalEmail.value = '';
+            }
+            document.getElementById('forgot-password-modal').classList.remove('hidden');
+        };
+
+        window.closeForgotPasswordModal = function() {
+            document.getElementById('forgot-password-modal').classList.add('hidden');
+        };
+
+        window.handleModalForgotPasswordSubmit = async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('modal-reset-email').value.trim();
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email address.', 'error');
+                return;
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showToast('Password reset email sent! Check your inbox.', 'success');
+                closeForgotPasswordModal();
+            } catch (error) {
+                showToast(getFriendlyErrorMessage(error.code), 'error');
+            }
+        };
+
+        // Save Social Profiles Handler
+        window.handleSaveSocials = async function() {
+            const user = auth.currentUser;
+            if (!user) return;
+            const github = document.getElementById('github-input').value.trim();
+            const linkedin = document.getElementById('linkedin-input').value.trim();
+
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                await setDoc(userRef, {
+                    github: github,
+                    linkedin: linkedin,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                showToast('Social profiles updated successfully!', 'success');
+            } catch (e) {
+                console.error("Error saving social profiles:", e);
+                showToast('Failed to save social profiles.', 'error');
+            }
+        };
+
+        // Logout Handler
+        window.handleLogout = async function() {
+            try {
+                await signOut(auth);
+                showToast('Signed out successfully.', 'success');
+            } catch (error) {
+                showToast('Error signing out.', 'error');
+            }
+        };
+
+        // Send Verification Email Handler
+        window.handleSendVerification = async function() {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                await sendEmailVerification(user);
+                showToast('Verification email sent! Please check your inbox.', 'success');
+            } catch (e) {
+                console.error("Error sending verification email:", e);
+                showToast('Failed to send verification email. Try again later.', 'error');
+            }
+        };
+
+        // Check Verification Status Handler (Reload User)
+        window.handleCheckVerificationStatus = async function() {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                await user.reload();
+                const updatedUser = auth.currentUser;
+                const banner = document.getElementById('email-verification-banner');
+                if (updatedUser.emailVerified) {
+                    banner.classList.add('hidden');
+                    showToast('Email verified successfully!', 'success');
+                } else {
+                    banner.classList.remove('hidden');
+                    showToast('Email is not verified yet. Please check your inbox.', 'error');
+                }
+            } catch (e) {
+                console.error("Error reloading user:", e);
+                showToast('Failed to refresh verification status.', 'error');
+            }
+        };
+
+        // Identicon Generator based on UID
+        function generateIdenticonDataUrl(uid) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 120;
+            canvas.height = 120;
+            const ctx = canvas.getContext('2d');
+            
+            let hash = 0;
+            for (let i = 0; i < uid.length; i++) {
+                hash = uid.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            
+            const hue = Math.abs(hash) % 360;
+            ctx.fillStyle = `hsl(${hue}, 70%, 20%)`;
+            ctx.fillRect(0, 0, 120, 120);
+            
+            const color1 = `hsl(${hue}, 85%, 60%)`;
+            const color2 = `hsl(${(hue + 75) % 360}, 90%, 50%)`;
+            
+            const size = 5;
+            const blockSize = 120 / size;
+            
+            for (let x = 0; x < Math.ceil(size / 2); x++) {
+                for (let y = 0; y < size; y++) {
+                    const bit = (hash >> ((x + y * size) % 31)) & 1;
+                    if (bit === 1) {
+                        ctx.fillStyle = (x + y) % 2 === 0 ? color1 : color2;
+                        ctx.fillRect(x * blockSize, y * blockSize, blockSize, blockSize);
+                        ctx.fillRect((size - 1 - x) * blockSize, y * blockSize, blockSize, blockSize);
+                    }
+                }
+            }
+            return canvas.toDataURL('image/png');
+        }
+
+        // Update Avatar UI helper
+        function updateAvatarUI(profileImageUrl, displayName = 'User') {
+            const container = document.getElementById('user-avatar-container');
+            if (profileImageUrl) {
+                container.innerHTML = `<img src="${profileImageUrl}" alt="Profile Avatar" class="w-full h-full object-cover">`;
+            } else {
+                const initial = (displayName || 'U').charAt(0).toUpperCase();
+                container.innerHTML = initial;
+            }
+        }
+
+        // Save Profile Image to Firestore
+        async function saveProfileImageToFirestore(dataUrl) {
+            const user = auth.currentUser;
+            if (!user) return;
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                await setDoc(userRef, {
+                    profileImageUrl: dataUrl,
+                    updatedAt: serverTimestamp()
+                }, { merge: true });
+                updateAvatarUI(dataUrl);
+                showToast('Profile image updated successfully!', 'success');
+            } catch (e) {
+                console.error("Error saving profile image:", e);
+                showToast('Failed to save profile image.', 'error');
+            }
+        }
+
+        // Camera Capture Handler
+        window.handleCameraCapture = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                const dataUrl = e.target.result;
+                await saveProfileImageToFirestore(dataUrl);
+            };
+            reader.readAsDataURL(file);
+        };
+
+        // Generate Identicon Handler
+        window.handleGenerateIdenticon = async function() {
+            const user = auth.currentUser;
+            if (!user) return;
+            const dataUrl = generateIdenticonDataUrl(user.uid);
+            await saveProfileImageToFirestore(dataUrl);
+        };
+
+        // Biometric Authentication Toggle Handler
+        window.handleBiometricToggle = function(checkbox) {
+            const isEnabled = checkbox.checked;
+            const user = auth.currentUser;
+            if (!user) return;
+            const key = `biometric_enabled_${user.uid}`;
+            localStorage.setItem(key, isEnabled ? 'true' : 'false');
+            if (isEnabled) {
+                showToast('Biometric authentication enabled for future logins on this device.', 'success');
+            } else {
+                showToast('Biometric authentication disabled for this device.', 'success');
+            }
+        };
+
+        // Auth State Observer
+        onAuthStateChanged(auth, async (user) => {
+            const authStateEl = document.getElementById('auth-state');
+            const dashboardStateEl = document.getElementById('dashboard-state');
+            const verificationBanner = document.getElementById('email-verification-banner');
+
+            if (user) {
+                // Logged In State
+                authStateEl.classList.add('hidden');
+                dashboardStateEl.classList.remove('hidden');
+
+                // Check Email Verification
+                if (!user.emailVerified) {
+                    verificationBanner.classList.remove('hidden');
+                } else {
+                    verificationBanner.classList.add('hidden');
+                }
+
+                document.getElementById('user-email-text').textContent = user.email || 'No email';
+                document.getElementById('user-uid').textContent = user.uid;
+                document.getElementById('user-last-login').textContent = new Date(user.metadata.lastSignInTime || Date.now()).toLocaleString();
+                
+                const displayName = user.displayName || user.email || 'User';
+                document.getElementById('user-display-name').textContent = displayName;
+                
+                updateAvatarUI(null, displayName);
+
+                // Fetch and populate user profile socials and profile image from Firestore
+                try {
+                    const userSnap = await getDoc(doc(db, 'users', user.uid));
+                    if (userSnap.exists()) {
+                        const data = userSnap.data();
+                        document.getElementById('github-input').value = data.github || '';
+                        document.getElementById('linkedin-input').value = data.linkedin || '';
+                        if (data.profileImageUrl) {
+                            updateAvatarUI(data.profileImageUrl, displayName);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error fetching user profile:", e);
+                }
+
+                // Load biometric setting from localStorage for this user/device
+                const bioKey = `biometric_enabled_${user.uid}`;
+                const bioSaved = localStorage.getItem(bioKey) === 'true';
+                document.getElementById('biometric-toggle').checked = bioSaved;
+            } else {
+                // Logged Out State
+                dashboardStateEl.classList.add('hidden');
+                authStateEl.classList.remove('hidden');
+                document.getElementById('auth-form').reset();
+                document.getElementById('github-input').value = '';
+                document.getElementById('linkedin-input').value = '';
+                document.getElementById('biometric-toggle').checked = false;
+                document.getElementById('user-avatar-container').innerHTML = 'U';
+            }
+        });
+    </script>
+</body>
+</html>

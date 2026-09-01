@@ -32,8 +32,12 @@ class AuthViewModel : ViewModel() {
     private val _otpSent = MutableStateFlow(false)
     val otpSent: StateFlow<Boolean> = _otpSent.asStateFlow()
 
-    fun sendOtp(phoneNumber: String, activity: Activity) {
+    fun sendOtp(rawPhoneNumber: String, activity: Activity) {
         _authState.value = AuthState.Loading
+        val phoneNumber = rawPhoneNumber.trim().let { num ->
+            val clean = num.replace(Regex("[^0-9+]"), "")
+            if (clean.startsWith("+")) clean else "+$clean"
+        }
         val callbacks = object : PhoneAuthProvider.OnVerificationStateChangedCallbacks() {
             override fun onVerificationCompleted(credential: PhoneAuthCredential) {
                 viewModelScope.launch {
@@ -91,6 +95,30 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _authState.value = AuthState.Loading
             val result = authRepository.registerWithEmailAndPassword(email, password)
+            if (result.isSuccess) {
+                _authState.value = AuthState.Authenticated
+            } else {
+                _authState.value = AuthState.Error(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
+            }
+        }
+    }
+
+    fun signInAnonymously() {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepository.signInAnonymously()
+            if (result.isSuccess) {
+                _authState.value = AuthState.Authenticated
+            } else {
+                _authState.value = AuthState.Error(result.exceptionOrNull()?.localizedMessage ?: "Unknown error")
+            }
+        }
+    }
+
+    fun signInWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+            val result = authRepository.signInWithGoogleCredential(idToken)
             if (result.isSuccess) {
                 _authState.value = AuthState.Authenticated
             } else {

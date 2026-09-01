@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Contacts
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -22,6 +23,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Button
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -71,7 +83,7 @@ val bottomNavItems = listOf(
     Screen.Settings
 )
 
-class MainActivity : ComponentActivity() {
+class MainActivity : androidx.fragment.app.FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -80,12 +92,75 @@ class MainActivity : ComponentActivity() {
                 val authViewModel: AuthViewModel = viewModel()
                 val authState by authViewModel.authState.collectAsState()
 
+                val context = androidx.compose.ui.platform.LocalContext.current
+                val fingerprintLockOn = remember { SecurityPreferences.isFingerprintLockEnabled(context) }
+                var isAuthenticated by remember { mutableStateOf(!fingerprintLockOn) }
+
+                androidx.compose.runtime.LaunchedEffect(authState) {
+                    if (authState is AuthState.Authenticated && SecurityPreferences.isFingerprintLockEnabled(context) && !isAuthenticated) {
+                        BiometricHelper.authenticate(
+                            activity = this@MainActivity,
+                            onSuccess = { isAuthenticated = true },
+                            onError = { _ -> },
+                            onFailed = {}
+                        )
+                    }
+                }
+
                 if (authState is AuthState.Authenticated) {
-                    MainScreen()
+                    val currentLockState = SecurityPreferences.isFingerprintLockEnabled(context)
+                    if (!currentLockState || isAuthenticated) {
+                        MainScreen()
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(androidx.compose.material3.MaterialTheme.colorScheme.background),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier.padding(24.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Lock,
+                                    contentDescription = "Locked",
+                                    modifier = Modifier.size(64.dp),
+                                    tint = androidx.compose.material3.MaterialTheme.colorScheme.primary
+                                )
+                                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "EUREKA is Locked",
+                                    style = androidx.compose.material3.MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Please authenticate with your fingerprint to continue.",
+                                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f),
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(24.dp))
+                                androidx.compose.material3.Button(
+                                    onClick = {
+                                        BiometricHelper.authenticate(
+                                            activity = this@MainActivity,
+                                            onSuccess = { isAuthenticated = true },
+                                            onError = { _ -> },
+                                            onFailed = {}
+                                        )
+                                    }
+                                ) {
+                                    Text("Unlock with Fingerprint")
+                                }
+                            }
+                        }
+                    }
                 } else {
                     SignInScreen(
                         authViewModel = authViewModel,
-                        onNavigateToMain = {} // The LaunchedEffect in SignInScreen isn't strictly needed if we just conditionally render, but we can leave it empty or trigger something if we need
+                        onNavigateToMain = {}
                     )
                 }
             }

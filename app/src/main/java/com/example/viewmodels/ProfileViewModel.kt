@@ -28,7 +28,7 @@ class ProfileViewModel(
     private val currentFirebaseUser = authRepository.currentUser
     val currentUserId: String = currentFirebaseUser?.uid ?: "user_me"
     val defaultEmail: String = currentFirebaseUser?.email ?: "nipamhazarika77@gmail.com"
-    val defaultPhoneNumber: String = currentFirebaseUser?.phoneNumber ?: "+1 (555) 123-4567"
+    val defaultPhoneNumber: String = currentFirebaseUser?.phoneNumber ?: "+91 98765 43210"
     val defaultDisplayName: String = currentFirebaseUser?.displayName
         ?: if (defaultEmail.contains("@")) defaultEmail.substringBefore("@") else "User"
 

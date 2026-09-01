@@ -289,6 +289,8 @@ fun ChatScreen(
                         },
                         onClearSearch = { searchQuery = "" },
                         matchCount = if (searchQuery.isNotBlank()) filteredMessages.size else null,
+                        otherTypingUserIds = state.otherTypingUserIds,
+                        onSimulateTyping = { viewModel.toggleSimulateOtherUserTyping() },
                         onBack = {
                             if (isSearchActive) {
                                 isSearchActive = false
@@ -327,7 +329,10 @@ fun ChatScreen(
                         // Bottom message input controls
                         ChatBottomInputBar(
                             text = inputText,
-                            onTextChange = { inputText = it },
+                            onTextChange = {
+                                inputText = it
+                                viewModel.onUserTyping(it)
+                            },
                             isSending = state.isSending,
                             onSend = {
                                 if (inputText.isNotBlank()) {
@@ -659,6 +664,8 @@ private fun ChatTopAppBar(
     onToggleSearch: () -> Unit,
     onClearSearch: () -> Unit,
     matchCount: Int?,
+    otherTypingUserIds: List<String> = emptyList(),
+    onSimulateTyping: () -> Unit = {},
     onBack: () -> Unit
 ) {
     var showMoreMenu by remember { mutableStateOf(false) }
@@ -785,11 +792,13 @@ private fun ChatTopAppBar(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
+                            val isOtherTyping = otherTypingUserIds.isNotEmpty()
                             Text(
-                                text = if (chat?.type == ChatType.AI) "Online • EUREKA Assistant" else "Online",
+                                text = if (isOtherTyping) "typing..." else if (chat?.type == ChatType.AI) "Online • EUREKA Assistant" else "Online",
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = CyanAccent
+                                fontWeight = if (isOtherTyping) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isOtherTyping) Color(0xFFD97706) else CyanAccent,
+                                modifier = Modifier.testTag("chat_typing_indicator_status")
                             )
                         }
                     }

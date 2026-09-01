@@ -38,7 +38,7 @@ fun SignInScreen(
     var password by remember { mutableStateOf("") }
     var isRegistering by remember { mutableStateOf(false) }
 
-    var phoneNumber by remember { mutableStateOf("") }
+    var phoneNumber by remember { mutableStateOf("+91 ") }
     var otpCode by remember { mutableStateOf("") }
 
     val authState by authViewModel.authState.collectAsState()
@@ -142,7 +142,7 @@ fun SignInScreen(
                     OutlinedTextField(
                         value = phoneNumber,
                         onValueChange = { phoneNumber = it },
-                        label = { Text("Phone Number (e.g. +1234567890)") },
+                        label = { Text("Phone Number (🇮🇳 +91)") },
                         modifier = Modifier.fillMaxWidth(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                         shape = RoundedCornerShape(12.dp)
@@ -210,6 +210,18 @@ fun SignInScreen(
                             fontSize = 16.sp
                         )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = { authViewModel.signInAnonymously() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Continue as Guest (Anonymous)", fontWeight = FontWeight.SemiBold)
                 }
             }
 

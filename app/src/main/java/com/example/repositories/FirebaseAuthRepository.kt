@@ -73,6 +73,27 @@ class FirebaseAuthRepository {
         }
     }
 
+    suspend fun signInAnonymously(): Result<FirebaseUser> {
+        return try {
+            val result = auth.signInAnonymously().await()
+            val user = result.user ?: throw Exception("User is null")
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun signInWithGoogleCredential(idToken: String): Result<FirebaseUser> {
+        return try {
+            val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+            val result = auth.signInWithCredential(credential).await()
+            val user = result.user ?: throw Exception("User is null")
+            Result.success(user)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun signOut() {
         try {
             auth.signOut()

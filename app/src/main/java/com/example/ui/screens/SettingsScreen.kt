@@ -50,6 +50,13 @@ import coil.compose.AsyncImage
 import com.example.ui.theme.DeepBlue
 import com.example.ui.theme.Purple
 import com.example.viewmodels.ProfileViewModel
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.fragment.app.FragmentActivity
+import com.example.BiometricHelper
+import com.example.SecurityPreferences
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -155,11 +162,82 @@ fun SettingsScreen(
                 subtitle = "Display name, status, bio & photo",
                 onClick = onNavigateToProfile
             )
-            SettingsItem(icon = Icons.Filled.Lock, title = "Account & Privacy", subtitle = "Security notifications, change number")
+            
+            val context = LocalContext.current
+            var isFingerprintEnabled by remember {
+                mutableStateOf(SecurityPreferences.isFingerprintLockEnabled(context))
+            }
+
+            SettingsSwitchItem(
+                icon = Icons.Filled.Lock,
+                title = "Fingerprint App Lock",
+                subtitle = "Require fingerprint to unlock app",
+                checked = isFingerprintEnabled,
+                onCheckedChange = { enable ->
+                    if (enable) {
+                        val activity = context as? FragmentActivity
+                        if (activity != null) {
+                            BiometricHelper.authenticate(
+                                activity = activity,
+                                title = "Enable Fingerprint Lock",
+                                subtitle = "Confirm your fingerprint to secure EUREKA",
+                                onSuccess = {
+                                    SecurityPreferences.setFingerprintLockEnabled(context, true)
+                                    isFingerprintEnabled = true
+                                },
+                                onError = { _ -> },
+                                onFailed = {}
+                            )
+                        } else {
+                            SecurityPreferences.setFingerprintLockEnabled(context, true)
+                            isFingerprintEnabled = true
+                        }
+                    } else {
+                        SecurityPreferences.setFingerprintLockEnabled(context, false)
+                        isFingerprintEnabled = false
+                    }
+                }
+            )
+
             SettingsItem(icon = Icons.Filled.Notifications, title = "Notifications", subtitle = "Message, group & call tones")
             SettingsItem(icon = Icons.Filled.Storage, title = "Storage and Data", subtitle = "Network usage, auto-download")
             SettingsItem(icon = Icons.Filled.HelpOutline, title = "Help", subtitle = "Help center, contact us, privacy policy")
         }
+    }
+}
+
+@Composable
+fun SettingsSwitchItem(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon, 
+            contentDescription = title, 
+            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
+            modifier = Modifier.size(28.dp)
+        )
+        Spacer(modifier = Modifier.width(24.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        androidx.compose.material3.Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
     }
 }
 
